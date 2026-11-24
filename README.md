@@ -1,128 +1,122 @@
-# :rocket: Sonarqube Quality Gate Ci Integration
+# SonarQube Quality Gate CI/CD Pipeline Integration
 
-<div align="center">
+[![CI/CD Pipeline](https://github.com/tayyabmasood911/sonarqube-quality-gate-ci-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/tayyabmasood911/sonarqube-quality-gate-ci-integration/actions)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-blue.svg)](SECURITY.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![SonarQube API](https://img.shields.io/badge/SonarQube-REST%20API-blue.svg)](https://docs.sonarsource.com/sonarqube/latest/)
+[![Quality Gate](https://img.shields.io/badge/Quality%20Gate-Enforced-success.svg)](#)
 
-[![Status](https://img.shields.io/badge/status-production--ready-brightgreen?style=for-the-badge&logo=git)]()
-[![Domain](https://img.shields.io/badge/domain-DevSecOps--and--CI/CD-blueviolet?style=for-the-badge)]()
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge&logo=github)](https://github.com/T9113/sonarqube-quality-gate-ci-integration/pulls)
-[![Security Hardened](https://img.shields.io/badge/security-hardened-red?style=for-the-badge&logo=shield)]()
-
-</div>
+An enterprise static code analysis, test coverage verification, and automated Quality Gate enforcement suite. Features automated SonarScanner CLI orchestration, resilient exponential backoff Compute Engine polling, and strict REST API gate evaluations that block pipeline progression upon metric threshold violations.
 
 ---
 
-## :memo: Executive Summary
+## Architectural Blueprint
 
-**Sonarqube Quality Gate Ci Integration** is an enterprise-grade production engineering implementation designed for mission-critical deployments. Built to meet stringent requirements for **99.99% availability**, zero-trust security boundaries, automated resilience, and seamless CI/CD delivery.
+The integration orchestrates code metrics, test coverage ingestion, SonarQube Compute Engine processing, and REST API polling into an automated gate.
 
-Key operational outcomes:
-- **Resilience:** Multi-zone high availability with automated fault detection and recovery.
-- **Scalability:** Elastic horizontal scaling responsive to real-time workload demand.
-- **Security:** Strict adherence to least-privilege RBAC, encrypted communications, and zero committed secrets.
-- **Maintainability:** Modular, declarative configuration aligned with cloud-native industry standards.
+![SonarQube Architecture](docs/architecture.svg)
 
 ---
 
-## :building_construction: System Architecture
+## Key Capabilities
 
-```text
-+-------------------------------------------------------------------------------+
-|                       Sonarqube Quality Gate Ci Integration Architecture Blueprint                    |
-|                                                                               |
-|   [Client Ingress] ===> [API Gateway / Traffic Router (TLS 1.3 / mTLS)]       |
-|                                     |                                         |
-|                                     v                                         |
-|                         [Core Workload Cluster]                               |
-|                         (Multi-Replica / Multi-AZ)                            |
-|                                     |                                         |
-|                 +-------------------+-------------------+                     |
-|                 |                                       |                     |
-|                 v                                       v                     |
-|     [Persistence & Storage Layer]           [Observability & Telemetry Engine]|
-|      (Encrypted at Rest / KMS)              (Prometheus / OTLP / OpenSearch)  |
-+-------------------------------------------------------------------------------+
-```
+- **Unified Configuration:** `sonar-project.properties` provides multi-language configurations covering JavaScript/TypeScript (LCOV), Python (Coverage.py), Go (`coverage.out`), and Java (JaCoCo).
+- **Automated PR & Branch Tracking:** `scripts/run_sonar_scanner.sh` automatically detects GitHub Actions Pull Request metadata and passes `-Dsonar.pullrequest.*` or `-Dsonar.branch.name` parameters.
+- **REST API Poller with Backoff:** `scripts/check_quality_gate.sh` parses `.scannerwork/report-task.txt`, polls `/api/ce/task?id=...` until completion, queries `/api/qualitygates/project_status`, and evaluates all metrics.
+- **Visual CI Step Summary:** Automatically outputs formatted Markdown tables displaying individual metric outcomes (Coverage, Reliability, Security Rating, Duplications) to GitHub Actions `$GITHUB_STEP_SUMMARY`.
+- **Zero-Tolerance Gate Enforcement:** Exits with code 1 when the Quality Gate status is `ERROR` or `WARN`, preventing flawed code from merging.
 
 ---
 
-## :sparkles: Key Enterprise Capabilities
+## Quick Start & Usage
 
-- :zap: **High Availability & Fault Tolerance:** Eliminates single points of failure via multi-node redundancy and health check probes.
-- :shield: **Zero-Trust Security Posture:** Enforces non-root runtime environments, ephemeral credentials, and automated vulnerability scanning.
-- :chart_with_upwards_trend: **Elastic Autoscaling:** Dynamic resource provisioning based on custom throughput, memory pressure, and queue depth.
-- :mag: **Full-Stack Observability:** Standardized structured telemetry, metrics instrumentation, and distributed request tracing.
-- :package: **GitOps & CI/CD Automation:** Infrastructure and configuration managed declaratively with automated testing and continuous deployment.
-
----
-
-## :file_folder: Repository Directory Structure
-
-```text
-.
-|-- config/              # Declarative configuration and environment definitions
-|-- src/                 # Production source code and manifests
-|-- scripts/             # Operational automation, setup, and maintenance scripts
-|-- tests/               # Comprehensive validation and unit test suites
-|-- LICENSE              # MIT Open Source License
-`-- README.md            # Enterprise architectural documentation
-```
-
----
-
-## :zap: Quick Start & Deployment
-
-### Prerequisites
-- Git `>= 2.40`
-- Docker Engine `>= 24.0` / Cloud CLI (AWS / GCP / Azure / Kubernetes)
-
-### Deployment Steps
+### 1. Execute Scan & Evaluate Gate Locally
 ```bash
-# 1. Clone the repository
-git clone https://github.com/T9113/sonarqube-quality-gate-ci-integration.git
-cd sonarqube-quality-gate-ci-integration
+# Set credentials
+export SONAR_HOST_URL="https://sonarqube.internal.corp"
+export SONAR_TOKEN="squ_abcdef1234567890"
+export SONAR_PROJECT_KEY="enterprise-cloud-platform"
 
-# 2. Inspect and configure environment parameters
-cp config/example.env config/.env
+# Execute Scanner CLI
+bash scripts/run_sonar_scanner.sh
 
-# 3. Validate configurations and syntax
-# Run linters, dry-run validations, or unit test suites
+# Poll and evaluate Quality Gate
+bash scripts/check_quality_gate.sh
+```
 
-# 4. Deploy workloads / infrastructure
-# Execute deployment manifests or container runtime
+### 2. GitHub Actions Integration Workflow
+```yaml
+name: SonarQube Code Quality Gate
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sonarqube:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full Git history required for accurate blame & SCM tracking
+
+      - name: Run Unit Tests & Generate Coverage
+        run: |
+          npm ci
+          npm test -- --coverage
+
+      - name: Execute SonarQube Analysis
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: "enterprise-cloud-platform"
+        run: bash scripts/run_sonar_scanner.sh
+
+      - name: Enforce SonarQube Quality Gate
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: bash scripts/check_quality_gate.sh
 ```
 
 ---
 
-## :gear: Configuration Reference
+## Configuration Reference: `sonar-project.properties`
 
-| Parameter | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `ENVIRONMENT` | string | `production` | Deployment environment target (`staging`, `production`) |
-| `LOG_LEVEL` | string | `info` | Structured logging verbosity (`debug`, `info`, `warn`, `error`) |
-| `METRICS_ENABLED` | boolean | `true` | Enables real-time Prometheus / OpenTelemetry telemetry export |
-| `TLS_MIN_VERSION` | string | `TLSv1.3` | Minimum allowable TLS protocol version for network traffic |
-
----
-
-## :lock: Security, Compliance & Governance
-
-1. **Least-Privilege Execution:** Services run under restricted service accounts with zero root permissions.
-2. **Encrypted Data In-Flight & At-Rest:** AES-256 / KMS envelope encryption for persistent state and TLS 1.3 for network transport.
-3. **Automated Supply Chain Security:** All dependencies and container images verified against CVE databases using Trivy and Semgrep.
-4. **Zero-Secret Guarantee:** No hardcoded tokens, passwords, or private keys exist in this codebase.
+| Property | Description | Production Value |
+|:---|:---|:---|
+| `sonar.projectKey` | Unique identifier for the repository in SonarQube | `enterprise-cloud-platform` |
+| `sonar.sources` | Source directories analyzed | `src,lib,cmd,pkg` |
+| `sonar.tests` | Test suite directories | `tests,test,spec` |
+| `sonar.javascript.lcov.reportPaths` | TypeScript/JavaScript LCOV coverage path | `coverage/lcov.info` |
+| `sonar.python.coverage.reportPaths` | Python Coverage.py XML report path | `coverage.xml` |
+| `sonar.go.coverage.reportPaths` | Go test coverage profile path | `coverage.out` |
+| `sonar.qualitygate.wait` | Forces CLI to wait for analysis completion | `true` |
+| `sonar.qualitygate.timeout` | Maximum wait duration in seconds | `300` |
 
 ---
 
-## :bust_in_silhouette: Author & Maintainer
+## Local Validation & Healthcheck
 
-**Tayyab Masood**  
-Cloud Solutions Architect & Senior DevOps Engineer  
-- :globe_with_meridians: **GitHub:** [@T9113](https://github.com/T9113)  
-- :scroll: **Certification:** AWS Certified Solutions Architect - Associate  
+```bash
+# Execute local unit tests
+python3 -m unittest discover -s tests -p "test_*.py"
+
+# Run integration healthcheck & mock API validation
+bash scripts/healthcheck.sh
+
+# Test SonarQube API client mock mode
+python3 scripts/sonar_api_client.py --mock-test
+```
 
 ---
 
-## :page_facing_up: License
+## Security Governance & Disclosure
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+For vulnerability disclosures or policy concerns, consult our [Responsible Disclosure Policy](SECURITY.md) or contact **Tayyab Masood** at [tayyabmasood911@gmail.com](mailto:tayyabmasood911@gmail.com).
+
+---
+
+## License
+
+Released under the MIT License. See [LICENSE](LICENSE) for full details.

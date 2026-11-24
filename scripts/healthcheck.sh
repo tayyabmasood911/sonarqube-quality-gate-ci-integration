@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=========================================="
-echo "      ENTERPRISE COMPONENT HEALTH CHECK   "
-echo "=========================================="
-echo "Timestamp : $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-echo "Status    : ALL SYSTEMS OPERATIONAL"
-echo "Health    : 100% HEALTHY"
-echo "=========================================="
+echo "=== SonarQube Integration Healthcheck ==="
+python3 --version
+python3 scripts/sonar_api_client.py --mock-test
+
+if [ -f "sonar-project.properties" ]; then
+    echo "[OK] sonar-project.properties present and readable."
+else
+    echo "[ERROR] Missing sonar-project.properties" >&2
+    exit 1
+fi
+
+echo "[OK] All integration scripts verified."
 exit 0
